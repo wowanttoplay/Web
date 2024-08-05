@@ -9,7 +9,18 @@ document.addEventListener('mousedown', (event) => {
 
 // 处理截图和下载的函数
 function takeScreenshotAndDownload(targetElement) {
-    html2canvas(targetElement).then((canvas) => {
+    html2canvas(targetElement, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        logging: true,
+        // onclone: (document) => {
+        //     const sections = document.querySelectorAll('.section');
+        //     sections.forEach(section => {
+        //         section.style.borderRadius = '15px'; // 例如：手动应用圆角样式
+        //     });
+        // }
+    }).then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
 
         // 创建 Blob 对象并使用 URL.createObjectURL
@@ -33,6 +44,7 @@ function takeScreenshotAndDownload(targetElement) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'screenshot') {
         const targetElement = document.elementFromPoint(mouseX, mouseY);
+        console.log(targetElement);
         if (targetElement) {
             takeScreenshotAndDownload(targetElement);
         } else {
