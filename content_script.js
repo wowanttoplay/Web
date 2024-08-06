@@ -1,67 +1,47 @@
 let mouseX = 0;
 let mouseY = 0;
 
-// 捕获鼠标坐标
 document.addEventListener('mousedown', (event) => {
     mouseX = event.clientX;
     mouseY = event.clientY;
 });
 
-// 处理截图和下载的函数
-function takeScreenshotAndDownload(targetElement) {
-    html2canvas(targetElement, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        logging: true,
-        // onclone: (document) => {
-        //     const sections = document.querySelectorAll('.section');
-        //     sections.forEach(section => {
-        //         section.style.borderRadius = '15px'; // 例如：手动应用圆角样式
-        //     });
-        // }
-    }).then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
+// 黑名单类名数组，包含已知的系统或框架类名
+const blacklist = ['ImageGatherer', 'SideFunctionPanel'];
 
-        // 创建 Blob 对象并使用 URL.createObjectURL
-        const blob = dataURLtoBlob(imgData);
-        const url = URL.createObjectURL(blob);
-
-        // 使用 a 标签进行下载
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'element_screenshot.png';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);  // 释放 URL 对象以节省内存
-    }).catch((error) => {
-        console.error('截图错误:', error);
+function getUniqueClassNames() {
+    const elements = document.querySelectorAll('*');
+    const classNames = new Set();
+    elements.forEach(element => {
+        element.classList.forEach(className => {
+            if (!blacklist.includes(className) && !isCommonFrameworkClass(className)) {
+                classNames.add(className);
+            }
+        });
     });
+    return Array.from(classNames);
 }
 
-// 监听来自后台脚本的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// 函数用于检测类名是否包含常见框架类名
+function isCommonFrameworkClass(className) {
+    const commonFrameworkClasses = ['mpa-', 'commonclass2'];
+    return commonFrameworkClasses.some(commonClass => className.includes(commonClass));
+}
+
+chrome.runtime.onMessage.addListener((request) => {
     if (request.action === 'screenshot') {
         const targetElement = document.elementFromPoint(mouseX, mouseY);
-        console.log(targetElement);
         if (targetElement) {
-            takeScreenshotAndDownload(targetElement);
+            window.takeScreenshotAndDownload(targetElement);
         } else {
             console.error('未找到目标元素。');
         }
+    } else if (request.action === 'downloadAll') {
+        const classNames = getUniqueClassNames();
+        window.createElementSelectionDialog(classNames).then((selector) => {
+            window.downloadAllElements(selector);
+        }).catch((error) => {
+            console.error(error);
+        });
     }
 });
-
-// 辅助函数：将 data URL 转换为 Blob 对象
-function dataURLtoBlob(dataUrl) {
-    const arr = dataUrl.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-}
